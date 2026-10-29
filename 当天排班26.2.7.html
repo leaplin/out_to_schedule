@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>百利广场工程部当天排班生产工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+        }
+        body {
+            background-color: #f5f5f5;
+        }
+        .container {
+            width: 100%;
+            margin: 0 auto;
+            padding: 15px 10px;
+            /* 容器最大宽度可选，防止大屏过宽 */
+            max-width: 1600px;
+        }
+        h2 {
+            font-size: 18px;
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        .upload-area {
+            padding: 30px 15px;
+            border: 2px dashed #ccc;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background-color: #fff;
+        }
+        .upload-area:hover, .upload-area:active {
+            border-color: #4299e1;
+            background-color: #f5f9ff;
+        }
+        .upload-area input {
+            display: none;
+        }
+        #selectFileBtn {
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 8px;
+        }
+        .upload-tip {
+            color: #666;
+            margin-top: 10px;
+            font-size: 14px;
+            line-height: 1.4;
+            padding: 0 10px;
+        }
+        #fileInfo {
+            margin-bottom: 15px;
+            color: #4299e1;
+            font-weight: 600;
+            font-size: 14px;
+            line-height: 1.4;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 8px;
+        }
+        .sheet-selector {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: #fff;
+            padding: 12px 15px;
+            border-radius: 8px;
+        }
+        .sheet-selector label {
+            color: #333;
+            font-weight: 500;
+            font-size: 15px;
+            white-space: nowrap;
+        }
+        .sheet-selector select {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            min-width: 0;
+            cursor: pointer;
+            font-size: 14px;
+            appearance: none;
+            background: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;
+            background-size: 16px;
+        }
+        /* 核心：强制左右分栏容器 - Flex布局（不切换为上下） */
+        .split-container {
+            display: flex;
+            gap: 10px; /* 左右两部分间距 */
+            width: 100%;
+            height: auto;
+            min-height: 400px; /* 保证分栏最小高度，避免塌陷 */
+            margin-bottom: 15px;
+            /* 禁止flex换行，强制左右并排 */
+            flex-wrap: nowrap;
+            /* 移动端左右布局超出时，容器可横向滚动（可选，避免内容挤压） */
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        /* 左侧：表格区域 - 固定flex占比，保持左右等分（可自定义） */
+        .left-column {
+            flex: 1; /* 等分空间，可改为固定宽度如width: 500px; */
+            min-width: 280px; /* 最小宽度，防止被挤压过窄 */
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 5px;
+            overflow: hidden;
+        }
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            position: relative;
+            height: calc(100% - 10px);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 5px;
+            min-width: 2100px;
+        }
+        th, td {
+            padding: 10px 8px;
+            border: 1px solid #e5e7eb;
+            text-align: left;
+            vertical-align: middle;
+            font-size: 13px;
+            position: relative;
+        }
+        th {
+            background-color: #4299e1;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        /* 固定前两列 + 不透明背景 + 高层级 */
+        th:nth-child(1), td:nth-child(1),
+        th:nth-child(2), td:nth-child(2)
+        {
+            position: sticky;
+            z-index: 30;
+            background-color: #ffffff;
+            opacity: 1;
+        }
+        th:nth-child(1), td:nth-child(1) {
+            left: 0;
+            z-index: 30;
+        }
+        th:nth-child(2), td:nth-child(2) {
+            z-index: 35;
+            left: calc(80px + 2px);
+        }
+        th:nth-child(1) {
+            background-color: #2b6cb0;
+            color: #ffffff;
+        }
+        th:nth-child(2) {
+            background-color: #3182ce;
+            color: #ffffff;
+        }
+        tr:nth-child(even) td:nth-child(1) {
+            background-color: #f0f4f8;
+        }
+        tr:nth-child(even) td:nth-child(2) {
+            background-color: #f5f8fb;
+        }
+        tr:hover td:nth-child(1) {
+            background-color: #e1efff;
+        }
+        tr:hover td:nth-child(2) {
+            background-color: #eaf2ff;
+        }
+        tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+        tr:hover {
+            background-color: #f0f7ff;
+        }
+        .merged-cell {
+            background-color: #e8f4f8;
+            z-index: 5;
+        }
+        .merged-cell:nth-child(1) {
+            background-color: #d1e7dd;
+            z-index: 30;
+        }
+        .merged-cell:nth-child(2) {
+            background-color: #d9edf7;
+            z-index: 35;
+        }
+        td:not(:nth-child(1)):not(:nth-child(2)),
+        th:not(:nth-child(1)):not(:nth-child(2)) {
+            z-index: 5;
+        }
+        /* 右侧：文本输入框区域 - 与左侧等分，强制左右布局 */
+        .right-column {
+            flex: 1; /* 等分空间，与左侧对称 */
+            min-width: 280px; /* 最小宽度，防止挤压 */
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .input-title {
+            font-size: 15px;
+            color: #333;
+            font-weight: 500;
+            margin-bottom: 5px;
+            white-space: nowrap; /* 标题不换行 */
+        }
+        #textInput {
+            flex: 1;
+            width: 100%;
+            padding: 12px 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: none;
+            -webkit-appearance: none;
+            outline: none;
+        }
+        #textInput:focus {
+            border-color: #4299e1;
+            box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
+        }
+        .input-tip {
+            font-size: 12px;
+            color: #666;
+            text-align: right;
+        }
+        .btn {
+            padding: 10px 20px;
+            background-color: #4299e1;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 16px;
+            touch-action: manipulation;
+        }
+        .btn:hover, .btn:active {
+            background-color: #3182ce;
+        }
+        .hidden {
+            display: none;
+        }
+        /* 优化小屏手机的左右布局（可选：不切换上下，仅微调样式） */
+        @media (max-width: 768px) {
+            .split-container {
+                /* 保留flex横向布局，不改为column */
+                gap: 8px;
+                min-height: 350px;
+            }
+            .left-column, .right-column {
+                min-width: 250px; /* 缩小最小宽度，适配小屏 */
+            }
+            th, td {
+                padding: 8px 6px;
+                font-size: 12px;
+            }
+            th:nth-child(1), td:nth-child(1),
+            th:nth-child(2), td:nth-child(2) {
+                padding: 8px 4px;
+            }
+            th:nth-child(2), td:nth-child(2) {
+                left: calc(0px);
+            }
+            .input-title {
+                font-size: 14px;
+            }
+            #textInput {
+                font-size: 13px;
+                padding: 10px 8px;
+            }
+        }
+        @media (max-width: 375px) {
+            h2 {
+                font-size: 16px;
+            }
+            .upload-area {
+                padding: 20px 10px;
+            }
+            #selectFileBtn {
+                padding: 10px 18px;
+                font-size: 14px;
+            }
+            .sheet-selector {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .sheet-selector label {
+                width: 100%;
+                margin-bottom: 5px;
+            }
+        }
+    </style>	
+	   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h2>百利广场工程部当天排班生产工具</h2>
+        <div class="upload-area" id="uploadArea">
+            <button class="btn" id="selectFileBtn">选择排班表文件</button>
+            <input type="file" id="fileInput" accept=".xlsx, .xls" />
+            <p class="upload-tip">仅支持 .xlsx / .xls 格式</p>
+        </div>
+        <div id="fileInfo"></div>
+        <div class="sheet-selector hidden" id="sheetSelector">
+            <label for="sheetList">选择工作表：</label>
+            <select id="sheetList"></select>
+        </div>
+
+        <!-- 核心：左右分栏DOM（保持不变，样式强制左右） -->
+        <div class="split-container">
+            <!-- 左侧：表格区域 -->
+            <div class="left-column">
+                <div class="table-container" id="tableContainer"></div>
+            </div>
+
+            <!-- 右侧：文本输入框区域 -->
+            <div class="right-column">
+                <button id="copyBtn">📋 一键复制排班表</button>
+                <h3 class="input-title">文本输入区域</h3>
+                <textarea id="textInput" placeholder="请输入文本内容...（可粘贴表格相关备注、提取的信息等）"></textarea>
+                <p class="input-tip">支持多行输入，内容仅保存在本地</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+		
+        // DOM 元素
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const selectFileBtn = document.getElementById('selectFileBtn');
+        const fileInfo = document.getElementById('fileInfo');
+        const sheetSelector = document.getElementById('sheetSelector');
+        const sheetList = document.getElementById('sheetList');
+        const tableContainer = document.getElementById('tableContainer');
+        const textInput = document.getElementById('textInput');
+        
+        // 全局存储工作簿数据
+        let workbook = null;
+
+        // 初始化事件
+        selectFileBtn.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#4299e1';
+            uploadArea.style.backgroundColor = '#f5f9ff';
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.borderColor = '#ccc';
+            uploadArea.style.backgroundColor = 'transparent';
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#ccc';
+            uploadArea.style.backgroundColor = 'transparent';
+            if (e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files;
+                handleFile(fileInput.files[0]);
+            }
+        });
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        });
+        sheetList.addEventListener('change', () => {
+            const selectedSheet = sheetList.value;
+            renderSheet(selectedSheet);
+			console.log("第389");
+			console.log(sheetList.value);
+													// getCellValueByRowCol(sheetList.value, 2, 3)
+													
+        });
+
+        // 读取文件并解析工作簿
+        function handleFile(file) {
+            fileInfo.textContent = `当前解析文件：${file.name}（大小：${(file.size / 1024 / 1024).toFixed(2)} MB）`;
+            const reader = new FileReader();
+            reader.readAsBinaryString(file);
+            reader.onload = (e) => {
+                try {
+                    const data = e.target.result;
+                    workbook = XLSX.read(data, { type: 'binary' });
+                    fillSheetList();
+                    sheetSelector.classList.remove('hidden');
+                    renderSheet(workbook.SheetNames[0]);
+                } catch (err) {
+                    fileInfo.textContent = `解析失败：${err.message}`;
+                    fileInfo.style.color = '#e53e3e';
+                    tableContainer.innerHTML = '';
+                }
+            };
+            reader.onerror = () => {
+                fileInfo.textContent = '文件读取失败，请重试';
+                fileInfo.style.color = '#e53e3e';
+            };
+        }
+
+        // 填充工作表下拉列表
+        function fillSheetList() {
+            sheetList.innerHTML = '';
+            workbook.SheetNames.forEach(sheetName => {
+                const option = document.createElement('option');
+                option.value = sheetName;
+                option.textContent = sheetName;
+                sheetList.appendChild(option);
+													// 		console.log("第425");
+													// 		console.log(sheetList.value);
+													
+            });
+								// 						getCellValueByRowCol(sheetList.value, 2, 3)
+        }
+
+        // 渲染指定工作表
+        function renderSheet(sheetName) {
+            const worksheet = workbook.Sheets[sheetName];
+            const merges = worksheet['!merges'] || [];
+            const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:A1');
+            const dataArr = Array.from({ length: range.e.r + 1 }, () => Array(range.e.c + 1).fill(''));
+            Object.keys(worksheet).forEach(key => {
+                if (/^[A-Z]+\d+$/.test(key)) {
+                    const { r, c } = XLSX.utils.decode_cell(key);
+                    dataArr[r][c] = worksheet[key].v || '';
+                }
+            });
+            renderTableWithMerges(dataArr, merges);
+			
+			// 									console.log("第425");
+			// 									console.log(sheetList.value);
+												
+			// 									getCellValueByRowCol(sheetList.value, 2, 3)
+												outToTextInput();
+        }
+
+        // 渲染带合并单元格的表格
+        function renderTableWithMerges(dataArr, merges) {
+            if (!dataArr.length) {
+                tableContainer.innerHTML = '<p style="padding: 15px; text-align: center; color: #666; font-size: 14px;">该工作表无数据</p>';
+                return;
+            }
+            const mergedFlags = Array.from({ length: dataArr.length }, () => Array(dataArr[0].length).fill(false));
+            let tableHtml = '<table><tbody>';
+            
+            dataArr.forEach((row, rowIndex) => {
+                tableHtml += '<tr>';
+                row.forEach((cell, colIndex) => {
+                    if (mergedFlags[rowIndex][colIndex]) return;
+                    let colSpan = 1, rowSpan = 1, isMerged = false;
+                    merges.forEach(merge => {
+                        const { s, e } = merge;
+                        if (s.r === rowIndex && s.c === colIndex) {
+                            colSpan = e.c - s.c + 1;
+                            rowSpan = e.r - s.r + 1;
+                            isMerged = true;
+                            for (let r = s.r; r <= e.r; r++) {
+                                for (let c = s.c; c <= e.c; c++) {
+                                    if (r !== s.r || c !== s.c) mergedFlags[r][c] = true;
+                                }
+                            }
+                        }
+                    });
+                    const cellClass = isMerged ? 'merged-cell' : '';
+                    tableHtml += `<td class="${cellClass}" colspan="${colSpan}" rowspan="${rowSpan}">${cell}</td>`;
+                });
+                tableHtml += '</tr>';
+            });
+            tableHtml += '</tbody></table>';
+            tableContainer.innerHTML = tableHtml;
+        }
+								function outToTextInput(){
+									// 查找序号栏
+									const today = new Date();
+									var rowNbWord;
+									var colNbWord;
+									var rowNmWord;
+									var colNmWord;
+									var rowNameOne;
+									var colDataOne;
+									var nameOne;
+									const postMap = ['总监','经理', '主管', '主管', '领班', '维修', '维修', '维修', '维修', '维修', '维修', '维修',
+													 '领班', '运行', '运行', '运行', '运行', '运行', '运行', '电梯', '电梯'];
+									const weekMap = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+									 
+									for (var row = 1; row < 5; row++) {//查找行
+										//var element = array[index];
+										for (var col = 1; col < 5; col++) {//查找列
+										    //var element = array[index];
+										    const cellValue = getCellValueByRowCol(sheetList.value, row, col)+"";//后面加上""转为字符串
+										    // console.log(getCellValueByRowCol(sheetList.value, row, col));
+												if(cellValue.includes("序"))//看单元格是否包含"序"字
+												{
+												    console.log("序号在第"+row+"行，第"+col+"列");
+												    rowNbWord = row;
+												    colNbWord = col;
+												}
+												if(cellValue.includes("名"))
+												{
+													   console.log("名字在第"+row+"行，第"+col+"列");
+													   rowNmWord = row;
+													   colNmWord = col;
+												}
+											}
+									}
+									console.log("今天日期"+today.getDate());
+									for(var row = rowNbWord; row < 5; row++){//查找所在列的第一行
+										// const cellValue = getCellValueByRowCol(sheetList.value, row, colNbWord)+"";//后面加上""转为字符串
+										if(getCellValueByRowCol(sheetList.value, row, colNbWord) == "1"){
+											if(getCellValueByRowCol(sheetList.value, row+1, colNbWord) == "2"){
+												if(getCellValueByRowCol(sheetList.value, row+2, colNbWord) == "3"){
+													console.log("第1个人名在第"+row+"行"); 
+													rowNameOne = row;
+													break;
+												}
+											}	
+										}
+										
+									}
+									for(var row = 1; row < 6; row++){//查找日期的第一行
+										// const cellValue = getCellValueByRowCol(sheetList.value, colNbWord, col)+"";//后面加上""转为字符串
+										for(var col = 1; col < 6; col++){//查找日期的第一列
+											
+											if(getCellValueByRowCol(sheetList.value, row, col) == "1"){
+												if(getCellValueByRowCol(sheetList.value, row, col+1) == "2"){
+													if(getCellValueByRowCol(sheetList.value, row, col+2) == "3"){
+														console.log("第1个日期在第"+col+"列"); 
+														colDataOne = col;
+														break;
+													}
+												}
+											}
+										}
+									}
+									const month = today.getMonth()+1;//当前月份
+									const data = today.getDate();//今天日期
+									//const data = 1;
+									textInput.value = "2026-"+month+"-"+data+"（"+weekMap[today.getDay()]+"）\n工程部排班\n行政班：\n"
+									// if(today.getDay()<6&&today.getDay()>0){
+									//     textInput.value += "李清    (总监)\n";
+									// }
+									function textToInputName(classA){//查找各个班次并吧名字等信息插入对应输入框
+										for(var row = rowNameOne; row < rowNameOne+22; row++){//按当前日期逐行扫描、共22个人，第一行是rowNameOne开始
+											const cellValue = getCellValueByRowCol(sheetList.value, row, data+colDataOne-1)+"";//获取当前日期对应行的班次
+											const classesName = getCellValueByRowCol(sheetList.value, row, colNmWord);//获取当前行的人名
+											if (cellValue.includes(classA)) {//查看是否符合当前班次
+												textInput.value += classesName;//如果是当前要查找的班次把名字提取到输入框
+												if(classesName.length<3){//当名字是两个字的后面加空格对齐后面的括号
+													textInput.value += "　";
+												}
+												textInput.value += "（"+postMap[row-rowNameOne]+"）";//把对应的职位填上
+												if(cellValue.includes("0.5上")&&cellValue.includes("A")){//如果是A班半天则加入具体的上班时间
+													textInput.value += "（12:00~16:00）";
+												}
+												if(cellValue.includes("0.5上")&&cellValue.includes("B")){//如果是B班半天则加入具体的上班时间
+													textInput.value += "（19:30~23:30）";
+												}
+												textInput.value += "\n";
+											}
+										}
+									}
+									textToInputName("E");//首先逐行查找E班
+									// 判断：如果E班没人，末尾还是"行政班：\n"，就补个 无
+if (textInput.value.endsWith("行政班：\n")) {
+    textInput.value += "无\n";
+}
+									textInput.value += "\n早班：8:00--16:00\n";//输出分割
+									textToInputName("A");
+									textInput.value += "\n中班：15:30--23:30\n";
+									textToInputName("B");
+									textInput.value += "\n晚班：23:30--8:00\n";	
+									textToInputName("Z");
+									textToInputName("C");
+									textInput.value += "——————————\n休息:\n";
+									for(var row = rowNameOne; row < rowNameOne+22; row++){//从第一个人名开始遍历所有的人名
+										const cellValue = getCellValueByRowCol(sheetList.value, row, data+colDataOne-1)+"";//读取当天班次。 后面加上""转为字符串
+										if (cellValue.includes("休")||cellValue.includes("年")) {//判断刚才读取的班次是否有休或年字
+											textInput.value += getCellValueByRowCol(sheetList.value, row, colNmWord);
+//											var offDay = 1;//记录读取了几天，下一天开始
+											var firstOffDay = -1;//记录读取了几天，上一天开始
+											while(true){//往前读取当前人是否连休
+												const cellValueOffDay = getCellValueByRowCol(sheetList.value, row, data+colDataOne-1+firstOffDay)+"";//读取下一天排班
+												if(cellValueOffDay.includes("休")||cellValueOffDay.includes("年")){
+													;
+												}
+												else{
+													
+													break;
+												}
+												firstOffDay--;
+											}
+											var lastOffDay= 1;//记录读取了几天，下一天开始
+											while(true){//往后读取当前人是否连休
+												
+												const cellValueOffDay = getCellValueByRowCol(sheetList.value, row, data+colDataOne-1+lastOffDay)+"";//读取下一天排班
+												if(cellValueOffDay.includes("休")||cellValueOffDay.includes("年")){
+													;
+												}
+												else{
+													
+													break;
+												}
+												lastOffDay++;
+											}
+											console.log("first+last"); 
+											console.log(-firstOffDay + lastOffDay); 
+											if((-firstOffDay + lastOffDay) > 3){
+												if(getCellValueByRowCol(sheetList.value, row, colNmWord).length<3){//当名字是两个字的后面加空格对齐后面的括号
+													textInput.value += "　";
+												}
+												textInput.value += "（连休";
+												textInput.value += data+firstOffDay+1;
+												textInput.value += "~";
+												textInput.value += data+lastOffDay-1;
+												textInput.value += "）";
+											}
+											textInput.value += "\n";
+										}
+									}
+
+
+								}
+								// function fillName(){
+								// 	for(var row = rowNameOne; row < rowNameOne+21; row++){
+								// 		const cellValue = getCellValueByRowCol(sheetList.value, row, data+colDataOne-1)+"";//后面加上""转为字符串
+								// 		if (cellValue.includes("休")) {
+								// 			textInput.value += getCellValueByRowCol(sheetList.value, row, colNmWord)+"\n";
+								// 		}
+								// 	}
+								// }
+	
+const copyBtn = document.getElementById('copyBtn');//页面添加一键复制
+copyBtn.addEventListener('click', async () => {
+   try {
+     // 选中输入框的所有文本
+     textInput.select();
+     // 执行复制命令
+     await navigator.clipboard.writeText(textInput.value);
+     
+     // 3. 复制成功提示
+     const originalText = copyBtn.textContent;
+     copyBtn.textContent = "✅ 复制成功！";
+     setTimeout(() => {
+       copyBtn.textContent = originalText;
+     }, 1500);
+   } catch (err) {
+     // 兼容旧浏览器的降级方案
+     document.execCommand('copy');
+     alert('✌️已复制到剪贴板！');
+   }
+ });
+								
+								
+								// 封装函数：根据行号、列号获取单元格数据（行/列从1开始计数）
+								function getCellValueByRowCol(sheetName, rowNum, colNum) {
+									// 校验参数
+									if (!workbook) {
+										console.error("未加载工作簿，请先上传文件");
+										return "";
+									}
+									const worksheet = workbook.Sheets[sheetName];
+									if (!worksheet) {
+										console.error(`不存在名为【${sheetName}】的工作表`);
+										return "";
+									}
+								
+									// 步骤1：将行号/列号转换为XLSX的单元格编码（如第5行第6列 → F5）
+									const cellCoord = XLSX.utils.encode_cell({ r: rowNum - 1, c: colNum - 1 }); 
+									// 注意：XLSX内部行/列索引从0开始，所以要-1
+								
+									// 步骤2：处理合并单元格（复用现有合并单元格逻辑）
+									// const merges = worksheet['!merges'] || [];
+									// const { r, c } = XLSX.utils.decode_cell(cellCoord);
+									// 检查是否在合并范围内，若是则取合并起始单元格的值
+								 //    for (let merge of merges) {
+								 //        const { s, e } = merge;
+								 //        if (r >= s.r && r <= e.r && c >= s.c && c <= e.c) {
+								 //            const startCoord = XLSX.utils.encode_cell(s);
+									// 		console.log("第503");
+									// 		console.log(worksheet[startCoord]?.v || "");
+								 //            return worksheet[startCoord]?.v || "";
+								 //        }
+								 //    }
+									// const merges = [6,9];
+									// for (let merge of merges) {
+									// 		console.log("第520");	
+									// 	}
+									// textInput.value = "第"+rowNum+"行"+"第"+colNum+"列"+"是 ";
+									// textInput.value += worksheet[cellCoord]?.v || "";
+									
+									// if (textInput.value.includes("名")) {
+									// 	console.log("包含'名'");
+									// 	textInput.value += "（包含指定文字）";
+									// } else {
+									// 	console.log("不包含'名'");
+									// 	textInput.value += "（不包含指定文字）";
+									// }
+									
+									// 步骤3：非合并单元格，直接返回值（v是原始值，w是格式化后的值，按需选择）
+									return worksheet[cellCoord]?.v || "";
+								}
+								
+        // 优化移动端点击延迟
+        document.addEventListener('touchstart', function() {}, false);
+    </script>
+</body>
+</html>
